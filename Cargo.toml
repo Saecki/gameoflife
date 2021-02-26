@@ -1,0 +1,10 @@
+[package]
+name = "gameoflife"
+version = "0.1.0"
+authors = ["Saecki <tobiasschmitz2001@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+sdl2 = "0.34.3"
+rand = "0.8.3"
+noise = "0.7.0"
