@@ -1,93 +1,150 @@
-use std::time::Duration;
+use std::ops::{Index, IndexMut};
+use std::time::{Duration, SystemTime};
 
-use noise::{Billow, NoiseFn, Perlin, Seedable};
+use noise::{NoiseFn, Seedable};
 use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
-use sdl2::{keyboard::Keycode, rect::Rect};
+use sdl2::rect::Rect;
 
+const DEFAULT_VIRT_FPS: u32 = 30;
+
+const FPS: u32 = 60;
 const WIDTH: usize = 160;
 const HEIGHT: usize = 90;
-const DEFAULT_FRAME_DELAY: u32 = 30;
 
-struct Board {
-    fields: [[bool; WIDTH]; HEIGHT],
+const PERLIN_SCALE: f64 = 0.16;
+const BILLOW_SCALE: f64 = 0.08;
+const WORLEY_SCALE: f64 = 0.16;
+
+struct Board<const W: usize, const H: usize> {
+    fields: Vec<bool>,
 }
 
-impl Board {
-    fn new(fields: [[bool; WIDTH]; HEIGHT]) -> Self {
-        Board { fields }
+impl<const W: usize, const H: usize> Index<usize> for Board<W, H> {
+    type Output = [bool];
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.fields[index * W..(index + 1) * W]
+    }
+}
+
+impl<const W: usize, const H: usize> IndexMut<usize> for Board<W, H> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.fields[index * W..(index + 1) * W]
+    }
+}
+
+impl<const W: usize, const H: usize> Board<W, H> {
+    fn new(fields: Vec<bool>) -> Self {
+        Self { fields }
     }
 
-    fn generate(method: impl Fn(usize, usize) -> bool) -> Self {
-        let mut fields = [[false; WIDTH]; HEIGHT];
+    fn clear() -> Self {
+        Self::new(vec![false; H * W])
+    }
 
-        for y in 0..HEIGHT {
-            for x in 0..WIDTH {
-                fields[y][x] = method(x, y);
-            }
-        }
+    fn generate(method: impl Fn(usize, usize) -> bool + Sync + Send) -> Self {
+        let size = H * W;
+        let fields: Vec<bool> = (0..size)
+            .into_iter()
+            .map(move |n| {
+                let x = n % W;
+                let y = n / W;
 
-        Board::new(fields)
+                method(x, y)
+            })
+            .collect();
+
+        Self::new(fields)
     }
 
     fn random() -> Self {
-        Self::generate(|_, _| rand::random::<f64>() < 0.3)
+        Self::generate(|_, _| rand::random())
     }
 
     fn perlin() -> Self {
-        let noise = Perlin::new().set_seed(rand::random());
+        let noise = noise::Perlin::new().set_seed(rand::random());
 
         Self::generate(|x, y| {
-            let val = noise.get([x as f64 / 42.0, y as f64 / 42.0]);
+            let val = noise.get([x as f64 * PERLIN_SCALE, y as f64 * PERLIN_SCALE]);
 
-            val < -0.2
+            val < 0.0
         })
     }
 
     fn billow() -> Self {
-        let noise = Billow::new().set_seed(rand::random());
+        let noise = noise::Billow::new().set_seed(rand::random());
 
         Self::generate(|x, y| {
-            let val = noise.get([x as f64 / 42.0, y as f64 / 42.0]);
+            let val = noise.get([x as f64 * BILLOW_SCALE, y as f64 * BILLOW_SCALE]);
 
-            val < -0.2
+            val < -0.5
         })
     }
 
+    fn worley() -> Self {
+        let noise = noise::Worley::new().set_seed(rand::random());
+
+        Self::generate(|x, y| {
+            let val = noise.get([x as f64 * WORLEY_SCALE, y as f64 * WORLEY_SCALE]);
+
+            val < -0.5
+        })
+    }
+
+    fn rows(&self) -> impl Iterator<Item = &[bool]> {
+        (0..H).into_iter().map(move |y| &self[y])
+    }
+
     fn next(&self) -> Self {
-        let mut next = [[false; WIDTH]; HEIGHT];
+        Self::generate(|x, y| {
+            let val = self[y][x];
+            let neighbours = self.neighbours(x, y);
 
-        for (y, row) in self.fields.iter().enumerate() {
-            for (x, field) in row.iter().enumerate() {
-                let neighbours = self.neighbours(x, y);
-
-                next[y][x] = match (field, neighbours) {
-                    (true, n) if n == 2 || n == 3 => true,
-                    (false, 3) => true,
-                    (_, _) => false,
-                }
+            match (val, neighbours) {
+                (true, 2) => true,
+                (_, 3) => true,
+                (_, _) => false,
             }
-        }
-
-        Board::new(next)
+        })
     }
 
     fn neighbours(&self, x: usize, y: usize) -> usize {
-        let x_low = if x > 0 { x - 1 } else { 0 };
-        let x_high = if x == WIDTH - 1 { WIDTH - 1 } else { x + 1 };
-        let y_low = if y > 0 { y - 1 } else { 0 };
-        let y_high = if y == HEIGHT - 1 { HEIGHT - 1 } else { y + 1 };
+        let x_low = if x == 0 { 0 } else { x - 1 };
+        let x_high = if x == W - 1 { W - 1 } else { x + 1 };
+        let y_low = if y == 0 { 0 } else { y - 1 };
+        let y_high = if y == H - 1 { H - 1 } else { y + 1 };
 
         let mut neighbours = 0;
-        for y in y_low..=y_high {
-            for x in x_low..=x_high {
-                if self.fields[y][x] == true {
+        for _y in y_low..=y_high {
+            for _x in x_low..=x_high {
+                if (_x, _y) == (x, y) {
+                    continue;
+                }
+                if self[_y][_x] {
                     neighbours += 1;
                 }
             }
         }
 
-        neighbours
+        neighbours as usize
+    }
+
+    fn line(&mut self, x1: usize, y1: usize, x2: usize, y2: usize, val: bool) {
+        let xd = x2 as isize - x1 as isize;
+        let yd = y2 as isize - y1 as isize;
+
+        let md = xd.abs().max(yd.abs());
+        let xf = xd as f32 / md as f32;
+        let yf = yd as f32 / md as f32;
+
+        for i in 0..=md {
+            let x = (x1 as f32 + (xf * i as f32).round()) as usize;
+            let y = (y1 as f32 + (yf * i as f32).round()) as usize;
+            self[y][x] = val;
+        }
     }
 }
 
@@ -107,11 +164,22 @@ fn main() {
     canvas.clear();
     canvas.present();
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut frame_delay = DEFAULT_FRAME_DELAY;
 
-    let mut board = Board::random();
+    let mut update_rate = DEFAULT_VIRT_FPS;
+    let mut last_update = std::time::SystemTime::now();
+    let mut last_render = std::time::SystemTime::now();
+    let mut pause = false;
+    let mut last_x = 0;
+    let mut last_y = 0;
+
+    let mut board = Board::<WIDTH, HEIGHT>::random();
 
     'running: loop {
+        let (width, height) = canvas.output_size().unwrap();
+        let tile_width = width / WIDTH as u32;
+        let tile_height = height / HEIGHT as u32;
+        let current_time = SystemTime::now();
+
         for e in event_pump.poll_iter() {
             match e {
                 Event::Quit { .. } => break 'running,
@@ -120,50 +188,83 @@ fn main() {
                     ..
                 } => match code {
                     Keycode::Q => break 'running,
+                    Keycode::C => board = Board::clear(),
                     Keycode::R => board = Board::random(),
                     Keycode::P => board = Board::perlin(),
                     Keycode::B => board = Board::billow(),
-                    Keycode::Num0 => frame_delay = DEFAULT_FRAME_DELAY,
-                    Keycode::Equals => frame_delay += 1,
+                    Keycode::W => board = Board::worley(),
+                    Keycode::Space => pause = !pause,
+                    Keycode::Num0 => update_rate = DEFAULT_VIRT_FPS,
+                    Keycode::Equals => update_rate += 1,
                     Keycode::Minus => {
-                        if frame_delay > 0 {
-                            frame_delay -= 1
+                        if update_rate > 1 {
+                            update_rate -= 1
                         }
                     }
                     _ => (),
                 },
+                Event::MouseButtonDown {
+                    x, y, mouse_btn, ..
+                } => {
+                    last_x = x as usize / tile_width as usize;
+                    last_y = y as usize / tile_height as usize;
+                    board[last_y][last_x] = matches!(mouse_btn, MouseButton::Left);
+                }
+                Event::MouseMotion {
+                    x, y, mousestate, ..
+                } => {
+                    let vx = x as usize / tile_width as usize;
+                    let vy = y as usize / tile_height as usize;
+
+                    if mousestate.left() {
+                        board.line(last_x, last_y, vx, vy, true);
+                    } else if mousestate.right() {
+                        board.line(last_x, last_y, vx, vy, false);
+                    }
+
+                    last_x = vx;
+                    last_y = vy;
+                }
                 _ => (),
             }
         }
 
-        board = board.next();
-
-        let (width, height) = canvas.output_size().unwrap();
-        let tile_width = width / WIDTH as u32;
-        let tile_height = height / HEIGHT as u32;
-
-        canvas.set_draw_color(Color::RGB(20, 20, 20));
-        canvas.clear();
-
-        for (y, row) in board.fields.iter().enumerate() {
-            for (x, &field) in row.iter().enumerate() {
-                if field {
-                    canvas.set_draw_color(Color::RGB(200, 200, 200));
-                } else {
-                    canvas.set_draw_color(Color::RGB(20, 20, 20));
-                }
-                canvas
-                    .fill_rect(Rect::new(
-                        tile_width as i32 * x as i32,
-                        tile_height as i32 * y as i32,
-                        tile_width,
-                        tile_height,
-                    ))
-                    .ok();
+        if !pause {
+            let measured_nanos = current_time.duration_since(last_update).unwrap().as_nanos();
+            let nanos = 1_000_000_000 / update_rate as u128;
+            if measured_nanos > nanos {
+                board = board.next();
+                last_update = current_time;
             }
         }
 
-        canvas.present();
-        std::thread::sleep(Duration::new(0, 1_000_000_000u32 / frame_delay));
+        let measured_nanos = current_time.duration_since(last_render).unwrap().as_nanos();
+        let nanos = 1_000_000_000 / FPS as u128;
+        if measured_nanos > nanos {
+            canvas.set_draw_color(Color::RGB(20, 20, 20));
+            canvas.clear();
+
+            for (y, row) in board.rows().enumerate() {
+                for (x, &field) in row.iter().enumerate() {
+                    if field {
+                        canvas.set_draw_color(Color::RGB(200, 200, 200));
+                    } else {
+                        canvas.set_draw_color(Color::RGB(20, 20, 20));
+                    }
+                    canvas
+                        .fill_rect(Rect::new(
+                            tile_width as i32 * x as i32,
+                            tile_height as i32 * y as i32,
+                            tile_width,
+                            tile_height,
+                        ))
+                        .ok();
+                }
+            }
+            canvas.present();
+            last_render = current_time;
+        }
+
+        std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 1000));
     }
 }
