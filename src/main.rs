@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use noise::{NoiseFn, Perlin, Seedable};
+use noise::{Billow, NoiseFn, Perlin, Seedable};
 use sdl2::event::Event;
 use sdl2::pixels::Color;
 use sdl2::{keyboard::Keycode, rect::Rect};
@@ -30,6 +30,10 @@ impl Board {
         Board::new(fields)
     }
 
+    fn random() -> Self {
+        Self::generate(|_, _| rand::random::<f64>() < 0.3)
+    }
+
     fn perlin() -> Self {
         let noise = Perlin::new().set_seed(rand::random());
 
@@ -40,8 +44,14 @@ impl Board {
         })
     }
 
-    fn random() -> Self {
-        Self::generate(|_, _| rand::random::<f64>() < 0.3)
+    fn billow() -> Self {
+        let noise = Billow::new().set_seed(rand::random());
+
+        Self::generate(|x, y| {
+            let val = noise.get([x as f64 / 42.0, y as f64 / 42.0]);
+
+            val < -0.2
+        })
     }
 
     fn next(&self) -> Self {
@@ -112,6 +122,7 @@ fn main() {
                     Keycode::Q => break 'running,
                     Keycode::R => board = Board::random(),
                     Keycode::P => board = Board::perlin(),
+                    Keycode::B => board = Board::billow(),
                     Keycode::Num0 => frame_delay = DEFAULT_FRAME_DELAY,
                     Keycode::Equals => frame_delay += 1,
                     Keycode::Minus => {
