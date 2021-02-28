@@ -94,6 +94,43 @@ impl<const W: usize, const H: usize> Board<W, H> {
         })
     }
 
+    fn glider() -> Self {
+        let mut new = Self::clear();
+
+        new[2][4] = true;
+        new[3][4] = true;
+        new[4][4] = true;
+        new[4][3] = true;
+        new[3][2] = true;
+
+        new
+    }
+
+    fn glider_gun() -> Self {
+        let mut new = Self::clear();
+
+        #[rustfmt::skip]
+        let gun: [[u8; 36]; 9] = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ];
+
+        for (y, row) in gun.iter().enumerate() {
+            for (x, &val) in row.iter().enumerate() {
+                new[y][x] = val == 1;
+            }
+        }
+
+        new
+    }
+
     fn rows(&self) -> impl Iterator<Item = &[bool]> {
         (0..H).into_iter().map(move |y| &self[y])
     }
@@ -193,6 +230,8 @@ fn main() {
                     Keycode::P => board = Board::perlin(),
                     Keycode::B => board = Board::billow(),
                     Keycode::W => board = Board::worley(),
+                    Keycode::L => board = Board::glider(),
+                    Keycode::G => board = Board::glider_gun(),
                     Keycode::Space => pause = !pause,
                     Keycode::Num0 => update_rate = DEFAULT_VIRT_FPS,
                     Keycode::Equals => update_rate += 1,
