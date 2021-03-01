@@ -4,6 +4,8 @@
 | Key     | Action                                  |
 |---------|-----------------------------------------|
 | `Space` | Pause/Resume the simulation             |
+| `-`     | Slow down the simulation                |
+| `=`     | Speed up the simulation                 |
 | `C`     | Clear the board                         |
 | `R`     | Randomize the board                     |
 | `P`     | Use Perlin noise to randomize the board |

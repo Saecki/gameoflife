@@ -33,6 +33,8 @@ impl<const W: usize, const H: usize> Index<usize> for Board<W, H> {
 impl<const W: usize, const H: usize> IndexMut<usize> for Board<W, H> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.fields[index * W..(index + 1) * W]
+
+        //TODO
     }
 }
 
@@ -97,11 +99,12 @@ impl<const W: usize, const H: usize> Board<W, H> {
     fn glider() -> Self {
         let mut new = Self::clear();
 
-        new[2][4] = true;
-        new[3][4] = true;
-        new[4][4] = true;
-        new[4][3] = true;
-        new[3][2] = true;
+        #[rustfmt::skip]
+        new.draw(10, 10, &[
+            "  #",
+            "# #",
+            " ##"
+        ]);
 
         new
     }
@@ -110,23 +113,17 @@ impl<const W: usize, const H: usize> Board<W, H> {
         let mut new = Self::clear();
 
         #[rustfmt::skip]
-        let gun: [[u8; 36]; 9] = [
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
-            [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ];
-
-        for (y, row) in gun.iter().enumerate() {
-            for (x, &val) in row.iter().enumerate() {
-                new[y][x] = val == 1;
-            }
-        }
+        new.draw(10, 10, &[
+            "                        #           ",
+            "                      # #           ",
+            "            ##      ##            ##",
+            "           #   #    ##            ##",
+            "##        #     #   ##              ",
+            "##        #   # ##    # #           ",
+            "          #     #       #           ",
+            "           #   #                    ",
+            "            ##                      ",
+        ]);
 
         new
     }
@@ -167,6 +164,14 @@ impl<const W: usize, const H: usize> Board<W, H> {
         }
 
         neighbours as usize
+    }
+
+    fn draw(&mut self, x_offset: usize, y_offset: usize, grid: &[&str]) {
+        for (y, row) in grid.iter().enumerate() {
+            for (x, val) in row.chars().enumerate() {
+                self[y_offset + y][x_offset + x] = val == '#';
+            }
+        }
     }
 
     fn line(&mut self, x1: usize, y1: usize, x2: usize, y2: usize, val: bool) {
