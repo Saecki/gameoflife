@@ -33,8 +33,6 @@ impl<const W: usize, const H: usize> Index<usize> for Board<W, H> {
 impl<const W: usize, const H: usize> IndexMut<usize> for Board<W, H> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.fields[index * W..(index + 1) * W]
-
-        //TODO
     }
 }
 
