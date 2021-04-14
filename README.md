@@ -21,11 +21,14 @@ Right click draws fields, and right click erases them.
 - SDL2
 
 __Fedora__
+
 ```dnf install SDL2-devel```
 
 __Ubuntu__
+
 ```apt install libsdl2-dev```
 
 __Arch__
+
 ```pacman -S sdl2```
 
