@@ -255,6 +255,7 @@ fn main() {
                 Event::MouseMotion {
                     x, y, mousestate, ..
                 } => {
+                    let (x, y) = (x.clamp(0, width as i32 - 1), y.clamp(0, height as i32 - 1));
                     let vx = x as usize / tile_width as usize;
                     let vy = y as usize / tile_height as usize;
 
